@@ -254,11 +254,13 @@ class NLCLModel(BaseModel):
         feat_o = self.netBack(src, self.gen_nce_layers, encode_only=True)
         feat_o_pool, sample_ids = self.netGenSample(feat_o, self.opt.num_patches, None)
         feat_b_pool, _ = self.netGenSample(feat_b, self.opt.num_patches, sample_ids)
-
+        self.scale_attn_matual = networks.ScaleAttention(feat_dim=feat_b_pool[0].shape[1])
+        scale_weights = self.scale_attn(feat_b_pool)
         total_nce_loss = 0.0
-        for f_b, f_o, crit, nce_layer in zip(feat_b_pool, feat_o_pool, self.criterionNCE, self.gen_nce_layers):
+        for i, (f_b, f_o, crit, nce_layer) in enumerate(zip(feat_b_pool, feat_o_pool, self.criterionNCE, self.gen_nce_layers)):
             loss = crit(f_b, f_o) * self.opt.lambda_NCE
-            total_nce_loss += loss.mean()
+            weighted_loss = (scale_weights[:, i, 0] * loss).mean()  # 每个样本加权，再取均值
+            total_nce_loss += weighted_loss
 
         return total_nce_loss / n_layers
 
@@ -277,11 +279,14 @@ class NLCLModel(BaseModel):
         # feat_R_pool, _ = self.netAdvSample(feat_pred_R, numpatches, ids)
         # timestrap1 = time.time()
         # print('time consume-sampling:', timestrap1 - timestrap2)
+        self.scale_attn = networks.ScaleAttention(feat_dim=feat_R_pool[0].shape[1])
+        scale_weights = self.scale_attn(feat_R_pool)
 
         total_dis_loss = 0.0
-        for f_b, f_r, nce_layer in zip(feat_B_pool, feat_R_pool, self.adv_nce_layers):
+        for i, (f_b, f_r, nce_layer) in enumerate(zip(feat_B_pool, feat_R_pool, self.adv_nce_layers)):
             loss = self.criterDisNCE(f_b, f_r)
-            total_dis_loss += loss.mean()
+            weighted_loss = (scale_weights[:, i, 0] * loss).mean()  # 每个样本加权，再取均值
+            total_dis_loss += weighted_loss
         # timestrap2 = time.time()
         # print('time consume-cal loss:', timestrap2- timestrap1)
 

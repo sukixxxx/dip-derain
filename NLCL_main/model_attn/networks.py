@@ -34,6 +34,24 @@ def get_filter(filt_size=3):
     return filt
 
 
+class ScaleAttention(nn.Module):
+    def __init__(self, feat_dim,hidden_dim=128):
+        super(ScaleAttention, self).__init__()
+        self.attn = nn.Sequential(
+            nn.Linear(feat_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1)
+        )
+
+    def forward(self, feats):
+        # feats: List[Tensor]，每个是 [B, C, H, W]
+        # 先对每个尺度做 GAP 得到 [B, C]
+        pooled_feats = [F.adaptive_avg_pool2d(f, (1,1)).squeeze(-1).squeeze(-1) for f in feats]
+        feats_cat = torch.stack(pooled_feats, dim=1)  # [B, S, C]
+        scores = self.attn(feats_cat)  # [B, S, 1]
+        weights = torch.softmax(scores, dim=1)  # [B, S, 1]
+        return weights  # 每个样本每个尺度的权重
+
 class Downsample(nn.Module):
     def __init__(self, channels, pad_type='reflect', filt_size=3, stride=2, pad_off=0):
         super(Downsample, self).__init__()

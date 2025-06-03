@@ -195,7 +195,7 @@ for fname in all_files:
 
 print("[INFO] NLCL test bash...")
 cmd = [
-    "python", "/home/workspace/ryc/code/NLCL/test.py",
+    "python", "/home/workspace/ryc/code/NLCL/test2.py",
     "--dataroot", tmp_dir,
     "--model", model_name,
     "--name", exp_name,
